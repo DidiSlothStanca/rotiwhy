@@ -62,20 +62,35 @@ Aplikasi web modern untuk mengelola inventori, penjualan, dan operasional toko r
 
 ## 📸 Screenshots
 
-### Login Page
-![Login Page](screenshots/login.png)
+### Login Page Dark Mode
+![Login Page](SS_RotiWhy/Login.png)
+
+### Login Page Light Mode
+![Login Page](SS_RotiWhy/Login_2.png)
 
 ### Dashboard Stok
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](SS_RotiWhy/Stock.png)
 
 ### Input Kasir
-![Input Kasir](screenshots/input-kasir.png)
+![Input Kasir](SS_RotiWhy/Input.png)
+
+### Kelola Antrian
+![Input Antrian](SS_RotiWhy/Antrean.png)
+
+### Input Riwayat Transaksi
+![Input Kasir](SS_RotiWhy/Riwayat_Transaksi.png)
 
 ### Grafik Penjualan
-![Grafik](screenshots/grafik.png)
+![Grafik](SS_RotiWhy/Grafik_Penjualan.png)
 
 ### Manajemen Produk (Admin)
-![Manajemen](screenshots/manajemen.png)
+![Manajemen](SS_RotiWhy/Role_User.png)
+
+### Manajemen Produk (Admin)
+![Manajemen](SS_RotiWhy/Pengaturan_Harga.png)
+
+### Manajemen Produk Roti (Admin)
+![Manajemen](SS_RotiWhy/Manajemen_Roti.png)
 
 ## 📁 Struktur File
 
