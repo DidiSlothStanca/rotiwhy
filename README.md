@@ -165,7 +165,7 @@ git push origin feature/AmazingFeature
 
 ## 📄 License
 
-GNU General Public License v2.0 - Free software yang dapat digunakan, dimodifikasi, dan didistribusikan kembali dengan syarat GPL v2.
+GNU General Public License v3 - Free software yang dapat digunakan, dimodifikasi, dan didistribusikan kembali dengan syarat GPL v3.
 
 Lihat file [LICENSE](LICENSE) untuk detail lengkap.
 
