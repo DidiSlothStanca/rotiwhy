@@ -198,4 +198,4 @@ Jika ada pertanyaan atau bug report, buat issue di repository ini.
 
 ---
 
-**Made with ❤️ for Bakery Owners**
+**Made with ❤️ for Didi Sloth Stanca**
