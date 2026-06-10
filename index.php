@@ -199,6 +199,25 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
         'faktor_multiplier' => $p['penjualan_kemarin'] > 0 ? round($p['penjualan_hari_ini'] / $p['penjualan_kemarin'], 2) : 1
     ];
 }
+
+// --- KODE DIAGRAM BATANG-DAUN (STATISTIKA) ---
+$query_pohon_daun = mysqli_query($conn, "SELECT qty FROM transaksi ORDER BY qty ASC");
+$data_qty = [];
+while ($row = mysqli_fetch_assoc($query_pohon_daun)) {
+    $data_qty[] = (int)$row['qty'];
+}
+
+$stem_leaf = [];
+foreach ($data_qty as $nilai) {
+    $stem = floor($nilai / 10); // Batang mengambil nilai puluhan
+    $leaf = $nilai % 10;        // Daun mengambil nilai satuan
+    
+    if (!isset($stem_leaf[$stem])) {
+        $stem_leaf[$stem] = [];
+    }
+    $stem_leaf[$stem][] = $leaf;
+}
+ksort($stem_leaf); // Mengurutkan batang dari kecil ke besar
 ?>
 
 <!DOCTYPE html>
@@ -320,10 +339,13 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
     <button class="tab-btn" onclick="bukaTab(event, 'antrian')">🎫 Kelola Antrian</button>
     <button class="tab-btn" onclick="bukaTab(event, 'riwayat-transaksi')">📋 Riwayat & Hapus</button>
     <button class="tab-btn" onclick="bukaTab(event, 'grafik-tab')">📈 Grafik Penjualan</button>
+        
     <?php if ($role_user === 'admin') : ?>
-        <button class="tab-btn" onclick="bukaTab(event, 'kelola-harga')">💰 Atur Harga</button>
+        <button class="tab-btn" onclick="bukaTab(event, 'kelola-harga')">💰 Kelola Produk</button>
         <button class="tab-btn" onclick="bukaTab(event, 'kelola-user')">👨‍💼 Kelola Karyawan</button>
     <?php endif; ?>
+    <button class="tab-btn" onclick="bukaTab(event, 'pohon-daun')">🍃 Ringkasan Statistik</button>
+    <button class="tab-btn" onclick="bukaTab(event, 'kalkulator-spl')">🧮 Kalkulator Produksi (SPL)</button>
 </div>
 
 <div id="dashboard" class="tab-content active">
@@ -430,7 +452,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
                     // Tentukan warna border dan badge berdasarkan status
                     $border_color = '#d9a724';
                     $badge_color = '#d9a724';
-                    $badge_text = '⏳ TERBUKA';
+                    $badge_text = '⏳ PROSES';
                     
                     if ($a['status'] === 'selesai') {
                         $border_color = '#4a8522';
@@ -455,7 +477,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
                         </span>
                         <?php if($a['status'] === 'open'): ?>
                             <br>
-                            <a href="proses.php?tutup_antrian=<?php echo $a['id_antrian']; ?>" class="btn-danger" style="font-size: 10px; padding: 4px 8px; margin-top: 5px; display: inline-block;" onclick="return confirm('Tutup antrian ini?')">Tutup</a>
+                            <a href="proses.php?tutup_antrian=<?php echo $a['id_antrian']; ?>" class="btn-danger" style="font-size: 10px; padding: 4px 8px; margin-top: 5px; display: inline-block;" onclick="return confirm('Tutup antrian ini?')">Selesai</a>
                             <br>
                             <a href="proses.php?batal_antrian=<?php echo $a['id_antrian']; ?>" class="btn-danger" style="font-size: 10px; padding: 4px 8px; margin-top: 3px; display: inline-block; background: #d97b2e;" onclick="return confirm('Batalkan antrian ini? Stock akan dikembalikan!')">Batalkan</a>
                         <?php endif; ?>
@@ -601,7 +623,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
 
 <?php if ($role_user === 'admin') : ?>
 <div id="kelola-harga" class="tab-content">
-    <h2>💰 Atur Ketentuan Harga Master</h2>
+    <h2>💰 Atur Harga Produk Tersedia</h2>
     <form action="proses.php" method="POST" autocomplete="off">
         <div class="form-group">
             <select name="id_roti" required>
@@ -619,7 +641,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
 
     <hr style="margin: 30px 0; border:0; border-top:1px dashed var(--border-color);">
     
-    <h2>🍞 Pasok Stok Production Harian Baru</h2>
+    <h2>🍞 Kelola Stock Harian</h2>
     <form action="proses.php" method="POST" autocomplete="off">
         <div class="form-group">
             <label>Pilih Roti</label>
@@ -641,7 +663,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
 
     <hr style="margin: 30px 0; border:0; border-top:1px dashed var(--border-color);">
 
-    <h2>🆕 Input Varian Roti/Kue Baru</h2>
+    <h2>🆕 Tambah Varian Roti dan Kue Baru</h2>
     <form action="proses.php" method="POST" autocomplete="off">
         <div class="form-group">
             <label>Nama Varian Roti Baru</label>
@@ -680,7 +702,7 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
 </div>
 
 <div id="kelola-user" class="tab-content">
-    <h2>👨‍💼 Manajemen Akun Karyawan</h2>
+    <h2>👨‍💼 Kelola Akun User</h2>
     <form action="proses.php" method="POST" autocomplete="off">
         <div class="form-group">
             <label>Username</label>
@@ -725,6 +747,140 @@ while($p = mysqli_fetch_assoc($query_prediksi_roti)) {
     </table>
 </div>
 <?php endif; ?>
+
+<div id="pohon-daun" class="tab-content" style="text-align: center;">
+    <h2>🍃 Analisis Statistika: Diagram Batang-Daun (Stem-and-Leaf Plot)</h2>
+    <p style="color: var(--text-light); max-width: 700px; margin: 0 auto;">
+        Mengukur distribusi frekuensi ukuran kuantitas (*qty*) pesanan per transaksi untuk mengetahui perilaku pembelian pelanggan.
+    </p>
+    
+    <div style="background: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid var(--border-color); margin: 25px auto; max-width: 650px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); text-align: left;">
+        <?php if (empty($data_qty)): ?>
+            <p style="color: var(--text-light); text-align: center; padding: 20px 0;">Belum ada data transaksi masuk untuk dipetakan.</p>
+        <?php else: ?>
+            
+            <div style="display: flex; font-size: 14px; font-weight: bold; color: var(--text-light); margin-bottom: 10px; border-bottom: 2px solid var(--primary-orange); padding-bottom: 8px;">
+                <div style="width: 120px; text-align: right; padding-right: 20px;">Batang (Puluhan)</div>
+                <div style="padding-left: 20px;">Daun (Satuan)</div>
+            </div>
+
+            <div style="font-family: 'Courier New', Courier, monospace; font-size: 22px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px;">
+                <?php foreach ($stem_leaf as $stem => $leaves): ?>
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 120px; text-align: right; font-weight: bold; color: var(--primary-orange); padding-right: 20px; border-right: 3px solid var(--primary-orange);">
+                            <?php echo $stem; ?>
+                        </div>
+                        <div style="padding-left: 20px; letter-spacing: 10px; color: var(--text-color); font-weight: bold; word-break: break-all;">
+                            <?php echo implode('', $leaves); ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div style="padding: 15px; background: var(--accent-cream); border-radius: 6px; border-left: 4px solid var(--primary-orange); font-size: 13px; color: var(--text-color); font-family: 'Segoe UI', sans-serif;">
+                <strong>📊 Ringkasan Statistika Deskriptif:</strong>
+                <ul style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6;">
+                    <li>Total Sampel Transaksi ($n$): <strong><?php echo count($data_qty); ?></strong> data</li>
+                    <li>Pembelian Paling Sedikit (Min): <strong><?php echo min($data_qty); ?> pcs</strong></li>
+                    <li>Pembelian Paling Banyak (Max): <strong><?php echo max($data_qty); ?> pcs</strong></li>
+                    <li style="margin-top: 8px;">
+                        <strong>💡 Cara Membaca Diagram:</strong> Garis oranye bertindak sebagai pembatas. Angka di sebelah kiri adalah puluhan (Batang), angka di kanan adalah satuan (Daun).
+                        <br><em>Contoh:</em> Jika baris menunjukkan <code>1 | 0 2 5</code>, artinya ada 3 transaksi terpisah dengan kuantitas pembelian sebanyak <strong>10 pcs</strong>, <strong>12 pcs</strong>, dan <strong>15 pcs</strong>.
+                    </li>
+                </ul>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div id="kalkulator-spl" class="tab-content">
+    <h2>🧮 Kalkulator Kapasitas Produksi</h2>
+    <p style="color: var(--text-light); margin-bottom: 20px;">
+        Masukkan sisa bahan baku di gudang. Sistem akan menghitung secara eksak berapa jumlah maksimal Croissant, Roti Tawar, dan Kue Cokelat yang bisa diproduksi hingga bahan baku habis tanpa sisa.
+    </p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="background: var(--accent-cream); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <h3>📥 Input Sisa Bahan Baku</h3>
+            <form action="index.php?tab=kalkulator-spl" method="POST" autocomplete="off" style="margin-top: 15px;">
+                <div class="form-group">
+                    <label>Total Tepung Terigu (Gram)</label>
+                    <input type="number" name="stok_tepung" required placeholder="Contoh: 5000" value="<?php echo isset($_POST['stok_tepung']) ? $_POST['stok_tepung'] : ''; ?>">
+                </div>
+                <div class="form-group">
+                    <label>Total Susu Cair (Mililiter)</label>
+                    <input type="number" name="stok_susu" required placeholder="Contoh: 2000" value="<?php echo isset($_POST['stok_susu']) ? $_POST['stok_susu'] : ''; ?>">
+                </div>
+                <div class="form-group">
+                    <label>Total Mentega (Gram)</label>
+                    <input type="number" name="stok_mentega" required placeholder="Contoh: 1000" value="<?php echo isset($_POST['stok_mentega']) ? $_POST['stok_mentega'] : ''; ?>">
+                </div>
+                <button type="submit" name="hitung_spl" class="btn-submit" style="background: var(--primary-orange);">Hitung Kapasitas</button>
+            </form>
+        </div>
+
+        <div style="background: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <h3>📤 Hasil Perhitungan SPL</h3>
+            <?php
+            if (isset($_POST['hitung_spl'])) {
+                // Asumsi Resep (Matriks Koefisien)
+                // Roti A (Croissant) -> x
+                $a1 = 200; // Gram tepung
+                $a2 = 50;  // ml susu
+                $a3 = 30;  // Gram mentega
+
+                // Roti B (Roti Tawar) -> y
+                $b1 = 300; 
+                $b2 = 100; 
+                $b3 = 20;  
+
+                // Roti C (Kue Cokelat) -> z
+                $c1 = 150; 
+                $c2 = 200; 
+                $c3 = 50;  
+
+                // Stok dari Input User (Konstanta)
+                $d1 = (float)$_POST['stok_tepung'];
+                $d2 = (float)$_POST['stok_susu'];
+                $d3 = (float)$_POST['stok_mentega'];
+
+                // Determinan Utama (D)
+                $D = ($a1*$b2*$c3) + ($b1*$c2*$a3) + ($c1*$a2*$b3) - ($c1*$b2*$a3) - ($a1*$c2*$b3) - ($b1*$a2*$c3);
+
+                if ($D == 0) {
+                    echo "<p style='color: #cc4125; font-weight: bold;'>Sistem tidak memiliki solusi unik (Determinan = 0). Resep proporsional atau data tidak valid.</p>";
+                } else {
+                    // Determinan Dx, Dy, Dz
+                    $Dx = ($d1*$b2*$c3) + ($b1*$c2*$d3) + ($c1*$d2*$b3) - ($c1*$b2*$d3) - ($d1*$c2*$b3) - ($b1*$d2*$c3);
+                    $Dy = ($a1*$d2*$c3) + ($d1*$c2*$a3) + ($c1*$a2*$d3) - ($c1*$d2*$a3) - ($a1*$c2*$d3) - ($d1*$a2*$c3);
+                    $Dz = ($a1*$b2*$d3) + ($b1*$d2*$a3) + ($d1*$a2*$b3) - ($d1*$b2*$a3) - ($a1*$d2*$b3) - ($b1*$a2*$d3);
+
+                    // Aturan Cramer
+                    $x = $Dx / $D;
+                    $y = $Dy / $D;
+                    $z = $Dz / $D;
+
+                    echo "<div style='margin-top: 15px;'>";
+                    
+                    if ($x < 0 || $y < 0 || $z < 0) {
+                        echo "<div style='padding: 10px; background: #fff3cd; color: #856404; border-radius: 6px; margin-bottom: 15px; font-size: 13px;'>⚠️ Peringatan: Hasil ada yang minus. Proporsi bahan baku di gudang tidak pas untuk menghabiskan semua bahan secara bersamaan dengan resep ini.</div>";
+                    }
+
+                    echo "<table style='width:100%; border-collapse: collapse;'>";
+                    echo "<tr><th style='background: var(--primary-orange); color: white; padding: 10px;'>Varian Roti</th><th style='background: var(--primary-orange); color: white; padding: 10px;'>Potensi Produksi</th></tr>";
+                    echo "<tr><td style='padding: 10px; border: 1px solid var(--border-color);'>🥐 Croissant</td><td style='padding: 10px; border: 1px solid var(--border-color); font-weight: bold;'>" . round($x, 2) . " pcs</td></tr>";
+                    echo "<tr><td style='padding: 10px; border: 1px solid var(--border-color);'>🍞 Roti Tawar</td><td style='padding: 10px; border: 1px solid var(--border-color); font-weight: bold;'>" . round($y, 2) . " pcs</td></tr>";
+                    echo "<tr><td style='padding: 10px; border: 1px solid var(--border-color);'>🧁 Kue Cokelat</td><td style='padding: 10px; border: 1px solid var(--border-color); font-weight: bold;'>" . round($z, 2) . " pcs</td></tr>";
+                    echo "</table>";
+                    echo "</div>";
+                }
+            } else {
+                echo "<p style='color: var(--text-light); text-align: center; margin-top: 40px;'>Silakan masukkan data bahan baku di samping untuk mulai menghitung.</p>";
+            }
+            ?>
+        </div>
+    </div>
+</div>
 
 <script>
 function showNotifikasi(pesan, tipe) {
@@ -791,10 +947,10 @@ const detailRotiData = {
 };
 
 const dataGrafik = {
-    hari: { titleQty: 'Penjualan Harian', titleDuit: 'Omset Harian', qty: <?php echo json_encode($g_hari_val); ?>, duit: <?php echo json_encode($g_hari_duit); ?>, labels: <?php echo json_encode($g_hari_lbl); ?> },
-    minggu: { titleQty: 'Penjualan Mingguan', titleDuit: 'Omset Mingguan', qty: <?php echo json_encode($g_mgu_val); ?>, duit: <?php echo json_encode($g_mgu_duit); ?>, labels: <?php echo json_encode($g_mgu_lbl); ?> },
-    bulan: { titleQty: 'Penjualan Bulanan', titleDuit: 'Omset Bulanan', qty: <?php echo json_encode($g_bln_val); ?>, duit: <?php echo json_encode($g_bln_duit); ?>, labels: <?php echo json_encode($g_bln_lbl); ?> },
-    tahun: { titleQty: 'Penjualan Tahunan', titleDuit: 'Omset Tahunan', qty: <?php echo json_encode($g_thn_val); ?>, duit: <?php echo json_encode($g_thn_duit); ?>, labels: <?php echo json_encode($g_thn_lbl); ?> }
+    hari: { titleQty: 'Penjualan Harian', titleDuit: 'Omset Harian', qty: <?php echo json_encode(array_values($g_hari_val)); ?>, duit: <?php echo json_encode(array_values($g_hari_duit)); ?>, labels: <?php echo json_encode(array_values($g_hari_lbl)); ?> },
+    minggu: { titleQty: 'Penjualan Mingguan', titleDuit: 'Omset Mingguan', qty: <?php echo json_encode(array_values($g_mgu_val)); ?>, duit: <?php echo json_encode(array_values($g_mgu_duit)); ?>, labels: <?php echo json_encode(array_values($g_mgu_lbl)); ?> },
+    bulan: { titleQty: 'Penjualan Bulanan', titleDuit: 'Omset Bulanan', qty: <?php echo json_encode(array_values($g_bln_val)); ?>, duit: <?php echo json_encode(array_values($g_bln_duit)); ?>, labels: <?php echo json_encode(array_values($g_bln_lbl)); ?> },
+    tahun: { titleQty: 'Penjualan Tahunan', titleDuit: 'Omset Tahunan', qty: <?php echo json_encode(array_values($g_thn_val)); ?>, duit: <?php echo json_encode(array_values($g_thn_duit)); ?>, labels: <?php echo json_encode(array_values($g_thn_lbl)); ?> }
 };
 
 const teksteksPendapatan = {
@@ -805,88 +961,114 @@ const teksteksPendapatan = {
 };
 
 function updateTeksRingkasan(tipe) {
-    document.getElementById('box_summary_text').innerHTML = teksteksPendapatan[tipe];
+    const elem = document.getElementById('box_summary_text');
+    if (elem) {
+        elem.innerHTML = teksteksPendapatan[tipe];
+    }
 }
 
 let chartInstance = null;
 
 function renderChart(tipeFilter, tipeChartQty) {
+    const canvasElement = document.getElementById('chartPenjualan');
+    if (!canvasElement) return;
+    
+    if (!ctx) {
+        ctx = canvasElement.getContext('2d');
+    }
+    
     if (chartInstance) {
         chartInstance.destroy();
+        chartInstance = null;
     }
+
+    const data = dataGrafik[tipeFilter];
+    if (!data) return;
 
     const bgWarnaQty = tipeChartQty === 'bar' 
         ? 'rgba(232, 137, 58, 0.7)'
         : 'rgba(232, 137, 58, 0.2)';
     const fillOpsiQty = tipeChartQty === 'bar' ? false : true;
 
-    chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: dataGrafik[tipeFilter].labels || [],
-            datasets: [
-                {
-                    type: tipeChartQty,
-                    label: dataGrafik[tipeFilter].titleQty,
-                    data: dataGrafik[tipeFilter].qty || [],
-                    backgroundColor: bgWarnaQty,
-                    borderColor: 'rgba(217, 119, 36, 1)',
-                    borderWidth: 2,
-                    borderRadius: tipeChartQty === 'bar' ? 4 : 0,
-                    fill: fillOpsiQty,
-                    yAxisID: 'y_qty'
-                },
-                {
-                    type: 'line',
-                    label: dataGrafik[tipeFilter].titleDuit,
-                    data: dataGrafik[tipeFilter].duit || [],
-                    backgroundColor: 'rgba(32, 120, 244, 0.1)',
-                    borderColor: 'rgba(32, 120, 244, 1)',
-                    borderWidth: 2.5,
-                    pointBackgroundColor: 'rgba(32, 120, 244, 1)',
-                    fill: true,
-                    tension: 0.15,
-                    yAxisID: 'y_duit'
-                }
-            ]
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            scales: { 
-                y_qty: { 
-                    type: 'linear', position: 'left', beginAtZero: true, ticks: { stepSize: 1 },
-                    title: { display: true, text: 'Jumlah Terjual (Pcs)', color: '#d97724', font: { weight: 'bold' } }
-                },
-                y_duit: {
-                    type: 'linear', position: 'right', beginAtZero: true,
-                    grid: { drawOnChartArea: false },
-                    title: { display: true, text: 'Pendapatan (Rupiah)', color: '#2078f4', font: { weight: 'bold' } },
-                    ticks: { callback: function(value) { return 'Rp ' + value.toLocaleString('id-ID'); } }
-                }
+    try {
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels && data.labels.length > 0 ? data.labels : [],
+                datasets: [
+                    {
+                        type: tipeChartQty,
+                        label: data.titleQty,
+                        data: data.qty && data.qty.length > 0 ? data.qty : [],
+                        backgroundColor: bgWarnaQty,
+                        borderColor: 'rgba(217, 119, 36, 1)',
+                        borderWidth: 2,
+                        borderRadius: tipeChartQty === 'bar' ? 4 : 0,
+                        fill: fillOpsiQty,
+                        yAxisID: 'y_qty'
+                    },
+                    {
+                        type: 'line',
+                        label: data.titleDuit,
+                        data: data.duit && data.duit.length > 0 ? data.duit : [],
+                        backgroundColor: 'rgba(32, 120, 244, 0.1)',
+                        borderColor: 'rgba(32, 120, 244, 1)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: 'rgba(32, 120, 244, 1)',
+                        fill: true,
+                        tension: 0.15,
+                        yAxisID: 'y_duit'
+                    }
+                ]
             },
-            plugins: {
-                legend: { display: true },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) { label += ': '; }
-                            if (context.datasetIndex === 1) {
-                                label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
-                            } else {
-                                label += context.parsed.y + ' pcs';
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: { 
+                    x: {
+                        display: true
+                    },
+                    y_qty: { 
+                        type: 'linear', 
+                        position: 'left', 
+                        beginAtZero: true, 
+                        ticks: { stepSize: 1 },
+                        title: { display: true, text: 'Jumlah Terjual (Pcs)', color: '#d97724', font: { weight: 'bold' } }
+                    },
+                    y_duit: {
+                        type: 'linear', 
+                        position: 'right', 
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Pendapatan (Rupiah)', color: '#2078f4', font: { weight: 'bold' } },
+                        ticks: { callback: function(value) { return 'Rp ' + value.toLocaleString('id-ID'); } }
+                    }
+                },
+                plugins: {
+                    legend: { display: true },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.datasetIndex === 1) {
+                                    label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                                } else {
+                                    label += context.parsed.y + ' pcs';
+                                }
+                                return label;
                             }
-                            return label;
                         }
                     }
                 }
             }
-        }
-    });
+        });
 
-    updateTeksRingkasan(tipeFilter);
+        updateTeksRingkasan(tipeFilter);
+    } catch(e) {
+        console.error('Error rendering chart:', e);
+    }
 }
 
 function updateDetailRoti(tipe) {
@@ -929,13 +1111,20 @@ function htmlEscape(str) {
 function gantiFilterGrafik(tipe, elemen) {
     currentFilter = tipe;
     let subBtns = document.getElementsByClassName("sub-btn");
-    for (let i = 0; i < subBtns.length; i++) { subBtns[i].className = subBtns[i].className.replace(" active", ""); }
-    if (elemen) { elemen.className += " active"; }
+    for (let i = 0; i < subBtns.length; i++) { 
+        subBtns[i].className = subBtns[i].className.replace(" active", ""); 
+    }
+    if (elemen) { 
+        elemen.className += " active"; 
+    }
 
     let elemenTipeChart = document.getElementById('tipe_chart');
     let tipeChartQty = elemenTipeChart ? elemenTipeChart.value : 'bar';
-    renderChart(tipe, tipeChartQty);
-    updateDetailRoti(tipe);
+    
+    setTimeout(() => {
+        renderChart(tipe, tipeChartQty);
+        updateDetailRoti(tipe);
+    }, 50);
 }
 
 function gantiTipeChart(tipeChartQty) {
@@ -955,8 +1144,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
     const canvasElement = document.getElementById('chartPenjualan');
     if (canvasElement) {
         ctx = canvasElement.getContext('2d');
-        renderChart('hari', 'bar');
-        updateDetailRoti('hari');
+        if (ctx) {
+            setTimeout(() => {
+                renderChart('hari', 'bar');
+                updateDetailRoti('hari');
+            }, 100);
+        }
     }
 
     const urlParams = new URLSearchParams(window.location.search);
