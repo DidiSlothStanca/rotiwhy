@@ -20,8 +20,8 @@ header("Pragma: no-cache");
 header("Expires: 0");
 
 $host = "localhost";
-$user = "root"; 
-$pass = "";     
+$user = "root direkomendasikan jika pakai"; 
+$pass = "isi dengan password";     
 $db   = "toko_roti";
 
 $conn = mysqli_connect($host, $user, $pass, $db);
