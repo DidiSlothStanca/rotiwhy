@@ -26,13 +26,15 @@ if (!isset($_SESSION['username'])) {
 $role_user = $_SESSION['role'];
 $nama_user = $_SESSION['nama'];
 
+$hari_ini = date('Y-m-d');
+
 $query_stok_toko = mysqli_query($conn, "
     SELECT r.id_roti, r.nama_roti, 
-           IF(r.tanggal_update = CURDATE(), r.stok_awal, 0) as stok_awal, 
+           IF(r.tanggal_update = '$hari_ini', r.stok_awal, 0) as stok_awal, 
            IFNULL(SUM(t.qty), 0) as total_terjual,
-           (IF(r.tanggal_update = CURDATE(), r.stok_awal, 0) - IFNULL(SUM(t.qty), 0)) as sisa_stok
+           (IF(r.tanggal_update = '$hari_ini', r.stok_awal, 0) - IFNULL(SUM(t.qty), 0)) as sisa_stok
     FROM roti r 
-    LEFT JOIN transaksi t ON r.id_roti = t.id_roti AND t.tanggal = CURDATE()
+    LEFT JOIN transaksi t ON r.id_roti = t.id_roti AND t.tanggal = '$hari_ini'
     GROUP BY r.id_roti
 ");
 
