@@ -1,4 +1,7 @@
 <?php
+// Pastikan zona waktu diset di baris pertama sebelum proses apa pun
+date_default_timezone_set('Asia/Jakarta');
+
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'lifetime' => 0,
@@ -17,11 +20,15 @@ header("Expires: 0");
 
 include 'koneksi.php';
 
+// Variabel tanggal hari ini yang akurat dari PHP
+$hari_ini = date('Y-m-d');
+
 // --- BUAT ANTRIAN ---
 if (isset($_POST['buat_antrian'])) {
     $jam_dibuka = date('Y-m-d H:i:s');
     
-    $q_nomor = mysqli_query($conn, "SELECT MAX(nomor_antrian) as nomor_max FROM antrian WHERE DATE(jam_dibuka) = CURDATE()");
+    // PERBAIKAN: Menggunakan variabel PHP '$hari_ini'
+    $q_nomor = mysqli_query($conn, "SELECT MAX(nomor_antrian) as nomor_max FROM antrian WHERE DATE(jam_dibuka) = '$hari_ini'");
     $nomor_data = mysqli_fetch_assoc($q_nomor);
     $nomor_baru = ($nomor_data['nomor_max'] ?? 0) + 1;
     
@@ -61,7 +68,8 @@ if (isset($_GET['batal_antrian'])) {
         
         if ($roti_data) {
             $id_roti = $roti_data['id_roti'];
-            $q_trans = mysqli_query($conn, "SELECT id_transaksi FROM transaksi WHERE nama_pembeli = '$nama_pembeli' AND id_roti = $id_roti AND tanggal = CURDATE() ORDER BY id_transaksi DESC LIMIT 1");
+            // PERBAIKAN: Menggunakan variabel PHP '$hari_ini'
+            $q_trans = mysqli_query($conn, "SELECT id_transaksi FROM transaksi WHERE nama_pembeli = '$nama_pembeli' AND id_roti = $id_roti AND tanggal = '$hari_ini' ORDER BY id_transaksi DESC LIMIT 1");
             $trans_data = mysqli_fetch_assoc($q_trans);
             
             if ($trans_data) {
@@ -82,9 +90,10 @@ if (isset($_POST['submit_transaksi'])) {
     $nama_pembeli = mysqli_real_escape_string($conn, $_POST['nama_pembeli']);
     $id_roti = intval($_POST['id_roti']);
     $qty = intval($_POST['qty']);
-    $tanggal = $_POST['tanggal'];
+    $tanggal = $_POST['tanggal']; // Tanggal yang dipilih oleh kasir di form
 
-    $query_harga = mysqli_query($conn, "SELECT harga, nama_roti, IF(tanggal_update = CURDATE(), stok_awal, 0) as stok_awal FROM roti WHERE id_roti = '$id_roti'");
+    // PERBAIKAN: Bandingkan tanggal_update dengan variabel '$tanggal' yang diinput kasir agar konsisten
+    $query_harga = mysqli_query($conn, "SELECT harga, nama_roti, IF(tanggal_update = '$tanggal', stok_awal, 0) as stok_awal FROM roti WHERE id_roti = '$id_roti'");
     $data_harga = mysqli_fetch_assoc($query_harga);
     
     if (!$data_harga) {
@@ -94,12 +103,13 @@ if (isset($_POST['submit_transaksi'])) {
         exit();
     }
     
-    $q_terjual = mysqli_query($conn, "SELECT IFNULL(SUM(qty), 0) as total_terjual FROM transaksi WHERE id_roti = $id_roti AND tanggal = CURDATE()");
+    // PERBAIKAN: Hitung total terjual berdasarkan tanggal input transaksi yang sedang diproses
+    $q_terjual = mysqli_query($conn, "SELECT IFNULL(SUM(qty), 0) as total_terjual FROM transaksi WHERE id_roti = $id_roti AND tanggal = '$tanggal'");
     $terjual_data = mysqli_fetch_assoc($q_terjual);
     $sisa_stok = $data_harga['stok_awal'] - $terjual_data['total_terjual'];
     
     if ($sisa_stok <= 0) {
-        $_SESSION['notif_pesan'] = "Tidak bisa order, stock habis!";
+        $_SESSION['notif_pesan'] = "Tidak bisa order, stock habis! (Tersedia: " . $sisa_stok . " pcs)";
         $_SESSION['notif_tipe'] = "error";
         header("Location: index.php?tab=input-kasir");
         exit();
@@ -118,7 +128,8 @@ if (isset($_POST['submit_transaksi'])) {
     $insert = mysqli_query($conn, "INSERT INTO transaksi (nama_pembeli, id_roti, qty, total_harga, tanggal) VALUES ('$nama_pembeli', '$id_roti', '$qty', '$total_harga', '$tanggal')");
     if ($insert) {
         $jam_dibuka = date('Y-m-d H:i:s');
-        $q_nomor = mysqli_query($conn, "SELECT MAX(nomor_antrian) as nomor_max FROM antrian WHERE DATE(jam_dibuka) = CURDATE()");
+        // PERBAIKAN: Ambil antrian maksimum berdasarkan tanggal input transaksi
+        $q_nomor = mysqli_query($conn, "SELECT MAX(nomor_antrian) as nomor_max FROM antrian WHERE DATE(jam_dibuka) = '$tanggal'");
         $nomor_data = mysqli_fetch_assoc($q_nomor);
         $nomor_baru = ($nomor_data['nomor_max'] ?? 0) + 1;
 
@@ -234,7 +245,7 @@ if (isset($_GET['logout'])) {
     exit();
 }
 
-// --- UPDATE STOK ---// --- UPDATE STOK ---
+// --- UPDATE STOK ---
 if (isset($_POST['update_stok'])) {
     if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') { 
         $_SESSION['notif_pesan'] = "Akses ditolak!";
@@ -246,16 +257,13 @@ if (isset($_POST['update_stok'])) {
     $tambah_stok = intval($_POST['stok_baru']);
     $tanggal_hari_ini = date('Y-m-d');
 
-    // Cek data roti saat ini
     $cek_roti = mysqli_query($conn, "SELECT stok_awal, tanggal_update FROM roti WHERE id_roti = '$id_roti'");
     $data_roti = mysqli_fetch_assoc($cek_roti);
 
     if ($data_roti) {
         if ($data_roti['tanggal_update'] == $tanggal_hari_ini) {
-            // Jika HARI SAMA: Tambahkan ke stok awal pagi yang sudah ada
             $stok_fix = $data_roti['stok_awal'] + $tambah_stok;
         } else {
-            // Jika GANTI HARI: Reset ke 0, lalu jadikan inputan ini sebagai stok awal baru
             $stok_fix = $tambah_stok;
         }
 
@@ -285,8 +293,10 @@ if (isset($_POST['tambah_roti_baru'])) {
     $nama_roti = mysqli_real_escape_string($conn, $_POST['nama_roti_baru']);
     $harga_roti = $_POST['harga_roti_baru'];
     $stok_awal = $_POST['stok_awal_baru'];
+    $tanggal_hari_ini = date('Y-m-d');
 
-    $insert_roti = mysqli_query($conn, "INSERT INTO roti (nama_roti, harga, stok_awal, tanggal_update) VALUES ('$nama_roti', '$harga_roti', '$stok_awal', CURDATE())");
+    // PERBAIKAN: Mengganti CURDATE() menjadi '$tanggal_hari_ini' agar konsisten dengan PHP
+    $insert_roti = mysqli_query($conn, "INSERT INTO roti (nama_roti, harga, stok_awal, tanggal_update) VALUES ('$nama_roti', '$harga_roti', '$stok_awal', '$tanggal_hari_ini')");
     
     if ($insert_roti) {
         $_SESSION['notif_pesan'] = "Varian Roti Baru Berhasil Ditambahkan!";
